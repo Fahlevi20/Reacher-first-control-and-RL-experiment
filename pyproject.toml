@@ -8,4 +8,5 @@ dependencies = [
     "gymnasium[mujoco]>=1.4.0",
     "matplotlib>=3.11.2",
     "notebook>=7.6.3",
+    "stable-baselines3>=2.9.0",
 ]

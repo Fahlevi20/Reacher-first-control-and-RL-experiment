@@ -65,3 +65,24 @@ Seed | Start distance | Closest distance | Final distance | Total reward | Succe
   49 |       0.255981 |         0.145768 |       0.173213 |   -10.512340 | False
   50 |       0.316714 |         0.111821 |       0.111821 |   -11.441349 | False
   51 |       0.159109 |         0.112552 |       0.175248 |    -8.011542 | False
+
+
+Using Observation-based Policy:
+
+I compared a fixed-action baseline with a hand-written policy that switches actions based on the fingertip’s x-offset. On 10 repeatable Reacher episodes, the fixed action met my provisional ‘ever within 0.05’ rule 0 times, and the observation-based rule met it 3 times. Neither controller was trained with RL.”
+
+Seed | Start distance | Closest distance | Final distance | Total reward | Success
+-------------------------------------------------------------------------------------
+  42 |       0.148185 |         0.148185 |       0.172645 |   -10.640841 | False
+  43 |       0.204758 |         0.046760 |       0.115604 |    -6.735297 | True
+  44 |       0.381065 |         0.174253 |       0.203011 |   -14.285330 | False
+  45 |       0.232501 |         0.107455 |       0.117026 |   -10.044383 | False
+  46 |       0.188319 |         0.125959 |       0.137500 |    -9.913775 | False
+  47 |       0.352997 |         0.168530 |       0.189927 |   -13.855076 | False
+  48 |       0.209893 |         0.160263 |       0.171917 |   -11.682013 | False
+  49 |       0.255981 |         0.008943 |       0.154279 |    -8.195874 | True
+  50 |       0.316714 |         0.092137 |       0.129984 |   -10.710031 | False
+  51 |       0.159109 |         0.030199 |       0.158383 |    -7.315249 | True
+
+
+  I tested two hand-written controllers over the same 10 Reacher episodes (seeds 42–51). The fixed-action controller sent [0.05, -0.10] at every step and met my provisional ‘ever within 0.05’ rule in 0/10 episodes. The observation-based controller chose between [0.05, -0.10] and [-0.05, -0.10] based on the sign of the fingertip-to-target x-offset; it met the rule in 3/10 episodes. Success only means the fingertip came close at some point—it might move away later. Neither controller was trained with RL

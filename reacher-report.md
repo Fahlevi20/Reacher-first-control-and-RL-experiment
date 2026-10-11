@@ -55,7 +55,7 @@ The first run requested **10,000 training timesteps** and collected **10,240** t
 
 I then ran a separate PPO training experiment requesting **50,000 timesteps**. It reached **51,200** training steps because PPO completes rollouts. An `EvalCallback` evaluated the evolving policy every **5,000 training steps**, using **10 episodes per evaluation** and deterministic actions, and saved a checkpoint when its **mean evaluation reward** improved. This selection rule is **not** my `0.05` distance threshold.
 
-The callback's highest reported mean evaluation reward was **−9.57 at 5,000 steps**. Later logged mean evaluation rewards were lower (for example, **−58.12 at 50,000 steps**), so the callback retained an earlier reward-selected checkpoint. The training log also warned that the callback evaluation environment was not wrapped with `Monitor`; evaluation still ran, but I should wrap that environment in `Monitor` for clearer episode accounting on the next run. The final 51,200-step model and the callback's saved checkpoint are **different models**; the final model has not been evaluated in this report.
+The callback's highest reported mean evaluation reward was **−9.57 at 5,000 steps**. Later logged mean evaluation rewards were lower (for example, **−58.12 at 50,000 steps**), so the callback retained an earlier reward-selected checkpoint. The training log also warned that the callback evaluation environment was not wrapped with `Monitor`; evaluation still ran, but I should wrap that environment in `Monitor` for clearer episode accounting on the next run. The final 51,200-step model and the callback's saved checkpoint are **different models**; both were evaluated separately below.
 
 I loaded `ppo_reacher_checkpoints/best_model.zip` and tested it on the same comparison seeds 42–51 with `deterministic=True`. Results:
 
@@ -74,22 +74,44 @@ I loaded `ppo_reacher_checkpoints/best_model.zip` and tested it on the same comp
 
 **Result: 0/10 successes on these comparison seeds.** The closest value, `0.093127`, was still above `0.05`. “Best model” means best **mean reward on the callback's evaluation episodes**, not best on every seed or by my success rule. This outcome does not establish that PPO is generally worse than either hand-written controller.
 
+## Final model from the longer PPO run
+
+I also loaded `ppo_reacher_final_50k.zip`, saved at the end of the longer run, and evaluated it separately with deterministic actions on comparison seeds 42–51. This time the action came from the **final model**, not the callback-selected checkpoint.
+
+| Seed | Closest distance | Final distance | Total reward | Success (`≤ 0.05`) |
+| ---: | ---: | ---: | ---: | :---: |
+| 42 | 0.023784 | 0.137107 | -57.686005 | Yes |
+| 43 | 0.053437 | 0.121021 | -55.842600 | No |
+| 44 | 0.044222 | 0.208880 | -60.682184 | Yes |
+| 45 | 0.046821 | 0.104872 | -56.584557 | Yes |
+| 46 | 0.034551 | 0.106176 | -56.762329 | Yes |
+| 47 | 0.007657 | 0.199266 | -60.300776 | Yes |
+| 48 | 0.046304 | 0.141467 | -58.112797 | Yes |
+| 49 | 0.054430 | 0.162238 | -57.458269 | No |
+| 50 | 0.058216 | 0.136880 | -57.383019 | No |
+| 51 | 0.016414 | 0.162512 | -57.111784 | Yes |
+
+**Result: 7/10 successes on these comparison seeds.** Every successful episode ended farther from the target than its closest recorded point. For example, on seed 47 the fingertip came within `0.007657`, which passes my `0.05` cutoff, but finished at `0.199266`; its total reward was `−60.300776`. This means it passed close at least once, **not** that it stayed close. The summary does not reveal its distance or action size at every intermediate step, so I cannot attribute the low total reward specifically to distance penalties or control penalties without logging their step-by-step contributions (`info["reward_dist"]` and `info["reward_ctrl"]`).
+
+The final model's `7/10` success count and the callback-selected model's `0/10` do not contradict each other. My threshold measures *ever close enough*, while Reacher's reward accounts for distance and action size at **every step**. `EvalCallback` selects by **mean evaluation reward on its evaluation episodes**, not by the count of episodes crossing my threshold. On these ten comparison seeds the final model has much more negative total reward despite more threshold successes. Ten episodes are too few for a general reliability claim.
+
 | Controller / checkpoint | Successes on seeds 42–51 |
 | --- | ---: |
 | Fixed action | 0/10 |
 | Hand-written x-offset rule | 3/10 |
 | First PPO run, ~10,000 steps | 2/10 |
 | Reward-selected checkpoint from longer PPO run | 0/10 |
+| Final model from longer PPO run | 7/10 |
 
 ## What I learned and next steps
 
-A policy is a rule for choosing actions. The fixed policy ignores observations; the x-offset rule uses one observation value to select an action pair. Neither hand-written rule learns. PPO updates a policy from experience, but simply training for more steps does not guarantee a better result on my particular success rule. The callback's reward-based selection and my distance-based success measure answer different questions.
+A policy is a rule for choosing actions. The fixed policy ignores observations; the x-offset rule uses one observation value to select an action pair. Neither hand-written rule learns. PPO updates a policy from experience, but training longer did **not** improve both measures here: the final model crossed my distance threshold more often on the comparison seeds while its episode reward was much worse. The callback's reward-based selection and my distance-based success measure answer different questions.
 
-Next I will evaluate the **final model from the 50,000-step run** with the same measurement code, keep it separate from the callback-selected checkpoint, and compare the outcomes. For future experiments I should use `Monitor` on callback evaluation, keep checkpoint-selection episodes distinct from final test episodes, and repeat training with multiple seeds before making reliability claims. The current ten-seed comparison is an exploratory learning benchmark, not proof of robust target reaching.
+These results do **not** establish overfitting, underfitting, or a “best fit.” The ten seeds have been used repeatedly for comparison and are not an untouched test set. To assess generalization, I need separate conditions not used to develop or select the controller, more evaluation episodes, and multiple training seeds. I should also check how long a successful policy remains near the target rather than only whether it passes near once, report the reward components separately, and use `Monitor` on the callback's evaluation environment for clearer episode accounting. This remains an exploratory learning benchmark, not proof of robust target reaching.
 
 ## Short presentation version
 
-> “Reacher is a simulated two-joint arm whose task is to move its fingertip toward a target. I compared a fixed command, a hand-written rule that changes commands using the fingertip's x-offset, and initial PPO-trained policies. On the same ten comparison episodes, my provisional ‘within 0.05 at any time’ rule was met 0, 3, and 2 times respectively for the fixed rule, hand-written rule, and first PPO run. A checkpoint selected by average reward in a longer PPO run met that distance rule 0 times on those episodes. That doesn't mean RL cannot solve the task: model selection used a different measure, and these are small exploratory tests. The next step is to evaluate the longer run's final model separately and improve the testing protocol.”
+> “Reacher is a simulated two-joint arm whose task is to move its fingertip toward a target. I tested two hand-written controllers and trained a PPO controller. On ten repeatable comparison episodes, my provisional ‘within 0.05 at any time’ rule was met 0 times by a fixed command, 3 times by an x-offset rule, 2 times by my first PPO model, and 7 times by the final model from a longer PPO run. A checkpoint selected during that longer run for high average reward met the same distance rule 0 times. The final model often passed near the target but did not stay near it; its episode rewards were worse than the reward-selected checkpoint's. These results show why how we define success matters. They are an exploratory learning exercise, not proof of reliable reaching or a diagnosis of overfitting.”
 
 
 

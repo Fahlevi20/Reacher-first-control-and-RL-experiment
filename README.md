@@ -1,0 +1,65 @@
+# Reacher: first control and RL experiment
+
+A learning experiment using Gymnasium's simulated two-joint **Reacher-v5** arm. The objective is to bring the fingertip near a target. This repository compares two hand-written controllers with early PPO-trained policies; it is **not** a production robotics system or proof of reliable reaching.
+
+## What I tested
+
+- **Fixed action:** send `[0.05, -0.10]` at every step.
+- **Hand-written observation-based rule:** inspect the fingertip-to-target x-offset; send `[0.05, -0.10]` if negative, otherwise `[-0.05, -0.10]`. This rule is for learning about policies, not a validated controller.
+- **PPO:** train an `MlpPolicy` on Reacher observations with Stable-Baselines3, then evaluate the saved policies using deterministic actions.
+
+Each evaluation runs episodes starting with seeds **42–51**. Distance is computed from both x and y offsets as `np.linalg.norm(observation[8:10])`, at reset and after every step. An episode counts as a *provisional success* if its **smallest** distance is `≤ 0.05` at any time, including the starting point. Reacher does not define this success threshold or stop when it is reached. Total reward is the sum of Reacher's step rewards; unlike the success check, it reflects distance and action cost across the entire episode.
+
+| Controller / saved checkpoint | Successes on these 10 episodes |
+| --- | ---: |
+| Fixed action | 0/10 |
+| Hand-written x-offset rule | 3/10 |
+| First PPO model (10,000 requested training steps) | 2/10 |
+| Reward-selected checkpoint from longer PPO run | 0/10 |
+| Final PPO model from longer run (50,000 requested steps) | 7/10 |
+
+**These measures disagree:** the final PPO model passed close to the target more often but had much worse total episode rewards than the reward-selected checkpoint. Passing close once is not the same as staying close. These ten repeatedly used seeds are an exploratory comparison set, **not an untouched test set**. See [reacher-report.md](reacher-report.md) for per-seed distances, rewards, methodology, interpretation, and a short presentation summary.
+
+## Files
+
+- [notebook.ipynb](notebook.ipynb) — step-by-step experiments, training, evaluations, and plots. This is a learning notebook with exploratory and repeated cells; execute the specific experiment you want rather than assuming every cell must be run in order.
+- [reacher-report.md](reacher-report.md) — task definition, results, limitations, and next steps.
+- `ppo_reacher_first_run.zip` — first PPO model, trained for 10,000 requested timesteps (10,240 collected).
+- `ppo_reacher_checkpoints/best_model.zip` — checkpoint selected by `EvalCallback` for highest **mean evaluation reward** during a longer run; *not* selected using the `0.05` distance cutoff.
+- `ppo_reacher_final_50k.zip` — final model saved after the longer run (51,200 collected timesteps).
+- `ppo_reacher_first_run_20261011_062532.zip` — additional timestamped PPO training run; keep it distinct from the callback-selected and final models.
+
+## Run locally
+
+The project specifies **Python 3.13 or newer** and dependencies in [pyproject.toml](pyproject.toml). From the project directory, install the project into a virtual environment and open the notebook, for example:
+
+```bash
+python -m venv .venv
+# Activate the environment using the command for your shell.
+python -m pip install -e .
+python -m notebook
+```
+
+If the environment is activated, use its Python for the install and notebook commands. The notebook can open a separate simulation window when it creates Reacher with `render_mode="human"`; a local desktop is needed for that view. Training cells use a non-rendered environment. The notebook uses relative paths for model files, so launch it from this directory or adjust paths to match your working directory. **Training cells create new models and may replace saved files with the same names**; load an existing model instead if you only want to evaluate it.
+
+To use a saved model with your own evaluation loop:
+
+```python
+from stable_baselines3 import PPO
+
+model = PPO.load("ppo_reacher_final_50k.zip")
+# Inside an episode's step loop, after env.reset(...):
+action, _ = model.predict(observation, deterministic=True)
+```
+
+The full reset/step loop, metrics, and plots are in the notebook. For a fair comparison, use the same seeds, episode limit, distance definition, and success rule for each controller.
+
+## Next steps
+
+Evaluate on separately chosen conditions not used for checkpoint selection or exploratory comparisons; repeat training with multiple random seeds. Measure both final distance and **how long** the fingertip stays near the target, and track distance and control contributions to reward. Add a `Monitor` wrapper to the callback evaluation environment for clearer episode accounting.
+
+## References
+
+- [Gymnasium Reacher-v5](https://gymnasium.farama.org/environments/mujoco/reacher/)
+- [Stable-Baselines3 PPO](https://stable-baselines3.readthedocs.io/en/master/modules/ppo.html)
+- [Stable-Baselines3 evaluation guidance](https://stable-baselines3.readthedocs.io/en/master/guide/rl_tips.html)

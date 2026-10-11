@@ -8,9 +8,9 @@ A learning experiment using Gymnasium's simulated two-joint **Reacher-v5** arm. 
 - **Hand-written observation-based rule:** inspect the fingertip-to-target x-offset; send `[0.05, -0.10]` if negative, otherwise `[-0.05, -0.10]`. This rule is for learning about policies, not a validated controller.
 - **PPO:** train an `MlpPolicy` on Reacher observations with Stable-Baselines3, then evaluate the saved policies using deterministic actions.
 
-Each evaluation runs episodes starting with seeds **42–51**. Distance is computed from both x and y offsets as `np.linalg.norm(observation[8:10])`, at reset and after every step. An episode counts as a *provisional success* if its **smallest** distance is `≤ 0.05` at any time, including the starting point. Reacher does not define this success threshold or stop when it is reached. Total reward is the sum of Reacher's step rewards; unlike the success check, it reflects distance and action cost across the entire episode.
+The original comparison uses reset seeds **42–51**. Distance is computed from both x and y offsets as `np.linalg.norm(observation[8:10])`, at reset and after every step. An episode counts as a *provisional success* if its **smallest** distance is `≤ 0.05` at any time, including the starting point. Reacher does not define this success threshold or stop when it is reached. Total reward is the sum of Reacher's step rewards; unlike the success check, it reflects distance and action cost across the entire episode.
 
-| Controller / saved checkpoint | Successes on these 10 episodes |
+| Controller / saved checkpoint | Successes on seeds 42–51 |
 | --- | ---: |
 | Fixed action | 0/10 |
 | Hand-written x-offset rule | 3/10 |
@@ -18,7 +18,18 @@ Each evaluation runs episodes starting with seeds **42–51**. Distance is compu
 | Reward-selected checkpoint from longer PPO run | 0/10 |
 | Final PPO model from longer run (50,000 requested steps) | 7/10 |
 
-**These measures disagree:** the final PPO model passed close to the target more often but had much worse total episode rewards than the reward-selected checkpoint. Passing close once is not the same as staying close. These ten repeatedly used seeds are an exploratory comparison set, **not an untouched test set**. See [reacher-report.md](reacher-report.md) for per-seed distances, rewards, methodology, interpretation, and a short presentation summary.
+**These measures disagree:** the final PPO model passed close to the target more often but had much worse total episode rewards than the reward-selected checkpoint. Passing close once is not the same as staying close. These ten repeatedly used seeds are an exploratory comparison set, **not an untouched test set**.
+
+## Additional evaluation on seeds 100–129
+
+I evaluated the two saved PPO models again on 30 different simulator reset seeds, without retraining them:
+
+| Saved model | Reached `≤ 0.05` at least once |
+| --- | ---: |
+| Reward-selected checkpoint | 6/30 |
+| Final PPO model | 24/30 |
+
+For each of these episodes, I also counted the post-action steps within `0.05` and the **longest uninterrupted stretch** of close steps. The final model reached the cutoff more often, but its longest stretch was **at most 4 steps** in any of these 30 episodes; the checkpoint reached it less often, but each of its six successful episodes had a stretch of **at least 6 steps**. The final model also had much larger action penalties. These are exploratory results in simulation, not proof of reliable sustained reaching. The new seeds have now been inspected and should not be treated as an untouched test set for future model selection. See [reacher-report.md](reacher-report.md) for per-seed results, reward breakdowns, charts, methodology, limitations, and a short presentation summary.
 
 ## Files
 
@@ -56,7 +67,7 @@ The full reset/step loop, metrics, and plots are in the notebook. For a fair com
 
 ## Next steps
 
-Evaluate on separately chosen conditions not used for checkpoint selection or exploratory comparisons; repeat training with multiple random seeds. Measure both final distance and **how long** the fingertip stays near the target, and track distance and control contributions to reward. Add a `Monitor` wrapper to the callback evaluation environment for clearer episode accounting.
+For a future experiment, decide whether the main goal is reaching the cutoff, staying near the target, improving total reward, or balancing these measures. Compare multiple training runs with different training seeds and evaluate on conditions not used to develop or select the models. Add a `Monitor` wrapper to the callback evaluation environment for clearer episode accounting. The current exploratory experiment is complete; further training would be a new experiment.
 
 ## References
 

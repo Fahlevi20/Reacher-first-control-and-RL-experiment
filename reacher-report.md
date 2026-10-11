@@ -103,11 +103,67 @@ The final model's `7/10` success count and the callback-selected model's `0/10` 
 | Reward-selected checkpoint from longer PPO run | 0/10 |
 | Final model from longer PPO run | 7/10 |
 
+## Additional evaluation on seeds 100–129
+
+I evaluated the saved reward-selected checkpoint and final PPO model on the same 30 new reset seeds, 100–129, with deterministic actions and the same provisional success rule: the smallest distance at reset or after any action must be `≤ 0.05`. This evaluation loads the saved models; it does not retrain them. The results in this section come from the saved notebook evaluation of seeds 100–129, not the earlier evaluation of seeds 42–51. These 30 seeds were not part of the earlier ten-seed comparison, but they are now part of my exploratory evaluation; they are not a guarantee of performance on other seeds.
+
+| Saved model | Episodes reaching `≤ 0.05` at least once | Example of reward components per episode |
+| --- | ---: | --- |
+| Reward-selected checkpoint | 6/30 | Seed 100: distance `−4.458281`, action `−0.170643`, total `−4.628924` |
+| Final PPO model | 24/30 | Seed 100: distance `−9.928332`, action `−48.423901`, total `−58.352230` |
+
+The final model crossed my cutoff more often on these seeds, but its action penalties were much larger. The two seed 100 examples illustrate this difference; they do not stand in for average values across all 30 episodes. The final model was within the cutoff at just **one post-action observation** on many successful seeds (for example, seed 101), but at **20 of 50** on seed 116 and **17 of 50** on seed 120. The reward-selected checkpoint reached the cutoff less often, but recorded **11 of 50** close observations on seed 100 and **10 of 50** on seed 102.
+
+I also checked the longest *consecutive* stretch of post-action observations within `0.05`, excluding the starting observation. The following results show both the total number of close steps and the longest uninterrupted stretch for each seed; `0` means no post-action observation was within the cutoff. Each episode has 50 post-action observations.
+
+| Seed | Checkpoint: close steps | Checkpoint: longest stretch | Final: close steps | Final: longest stretch |
+| ---: | ---: | ---: | ---: | ---: |
+| 100 | 11 | 11 | 3 | 2 |
+| 101 | 0 | 0 | 1 | 1 |
+| 102 | 10 | 9 | 1 | 1 |
+| 103 | 0 | 0 | 1 | 1 |
+| 104 | 0 | 0 | 1 | 1 |
+| 105 | 0 | 0 | 1 | 1 |
+| 106 | 0 | 0 | 1 | 1 |
+| 107 | 0 | 0 | 1 | 1 |
+| 108 | 0 | 0 | 1 | 1 |
+| 109 | 0 | 0 | 1 | 1 |
+| 110 | 0 | 0 | 1 | 1 |
+| 111 | 0 | 0 | 2 | 1 |
+| 112 | 0 | 0 | 0 | 0 |
+| 113 | 0 | 0 | 0 | 0 |
+| 114 | 0 | 0 | 1 | 1 |
+| 115 | 10 | 6 | 8 | 2 |
+| 116 | 9 | 9 | 20 | 4 |
+| 117 | 0 | 0 | 1 | 1 |
+| 118 | 0 | 0 | 1 | 1 |
+| 119 | 0 | 0 | 1 | 1 |
+| 120 | 10 | 10 | 17 | 2 |
+| 121 | 0 | 0 | 1 | 1 |
+| 122 | 7 | 7 | 1 | 1 |
+| 123 | 0 | 0 | 1 | 1 |
+| 124 | 0 | 0 | 0 | 0 |
+| 125 | 0 | 0 | 0 | 0 |
+| 126 | 0 | 0 | 0 | 0 |
+| 127 | 0 | 0 | 0 | 0 |
+| 128 | 0 | 0 | 1 | 1 |
+| 129 | 0 | 0 | 1 | 1 |
+
+On these seeds, the final model's longest stretch in any episode was **4 steps** (seed 116), even though it had 20 close steps in total on that seed. Its 17 close steps on seed 120 had a longest stretch of only **2**. For the reward-selected checkpoint, each of the six episodes that reached the cutoff had an uninterrupted close stretch of **at least 6 steps**; the longest was **11 steps** on seed 100. Thus, the final model reached the cutoff more often, while the checkpoint maintained longer uninterrupted close stretches *when it reached the cutoff*. These are counts at discrete simulation steps, not continuous real-world time. None of these measures alone proves reliable sustained reaching.
+
+![Median fingertip-to-target distance over steps for both saved models on seeds 100–129](test%20with%20different%20seed.png)
+
+*Each line is the median distance at a given step across 30 episodes; shading covers the middle 50%. A line above `0.05` does not mean no individual episode crossed the cutoff.*
+
+![Final PPO model distance over steps for seed 116, with the 0.05 cutoff](final%20model%20seed%20116.png)
+
+*Seed 116 illustrates the difference between 20 close steps in total and a longest uninterrupted stretch of 4: the distance repeatedly moves above and below the cutoff.*
+
 ## What I learned and next steps
 
 A policy is a rule for choosing actions. The fixed policy ignores observations; the x-offset rule uses one observation value to select an action pair. Neither hand-written rule learns. PPO updates a policy from experience, but training longer did **not** improve both measures here: the final model crossed my distance threshold more often on the comparison seeds while its episode reward was much worse. The callback's reward-based selection and my distance-based success measure answer different questions.
 
-These results do **not** establish overfitting, underfitting, or a “best fit.” The ten seeds have been used repeatedly for comparison and are not an untouched test set. To assess generalization, I need separate conditions not used to develop or select the controller, more evaluation episodes, and multiple training seeds. I should also check how long a successful policy remains near the target rather than only whether it passes near once, report the reward components separately, and use `Monitor` on the callback's evaluation environment for clearer episode accounting. This remains an exploratory learning benchmark, not proof of robust target reaching.
+These results do **not** establish overfitting, underfitting, or a “best fit.” The original ten seeds were used repeatedly for comparison, and the additional 30 seeds have now been inspected too; neither set should be treated as an untouched test set for future model selection. To assess generalization, I need separately chosen conditions, multiple training seeds, and evaluation of future models without tuning them on these same episodes. I should compare sustained proximity across more training runs and use `Monitor` on the callback's evaluation environment for clearer episode accounting. This remains an exploratory learning benchmark, not proof of robust target reaching.
 
 ## Short presentation version
 
